@@ -27,7 +27,9 @@ class PlannerExecutorAgent(BaseAgent):
                     docs.append(doc)
                     seen_doc_ids.add(doc.doc_id)
 
-        answer = " ".join(f"{doc.title}: {doc.text}" for doc in docs)
+        answer = " ".join(
+            f"{doc.title} ({doc.source}, {doc.year}): {doc.text}" for doc in docs
+        )
         steps.append(TraceStep(kind="synthesize", content=answer))
 
         return AgentResult(

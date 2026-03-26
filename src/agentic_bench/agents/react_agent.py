@@ -35,7 +35,9 @@ class ReActAgent(BaseAgent):
         )
 
         all_docs = initial_docs + [doc for doc in extra_docs if doc.doc_id not in {d.doc_id for d in initial_docs}]
-        answer = " ".join(f"{doc.title}: {doc.text}" for doc in all_docs)
+        answer = " ".join(
+            f"{doc.title} ({doc.source}, {doc.year}): {doc.text}" for doc in all_docs
+        )
         steps.append(TraceStep(kind="answer", content=answer))
 
         return AgentResult(

@@ -10,7 +10,7 @@ class BaselineRAGAgent(BaseAgent):
     def run(self, task: Task) -> AgentResult:
         docs = self.search_tool.search(task.question, top_k=2)
         citations = [doc.doc_id for doc in docs]
-        answer_parts = [f"{doc.title}: {doc.text}" for doc in docs]
+        answer_parts = [f"{doc.title} ({doc.source}, {doc.year}): {doc.text}" for doc in docs]
         answer = " ".join(answer_parts)
         steps = [
             TraceStep(kind="retrieve", content=task.question, metadata={"doc_ids": citations}),

@@ -8,6 +8,9 @@ from typing import Any
 class Document:
     doc_id: str
     title: str
+    source: str
+    year: int
+    url: str
     text: str
 
 

@@ -2,7 +2,7 @@
 
 This project is a small benchmark harness for comparing tool-using research agents on a narrow domain.
 
-The first domain is recommender systems and retrieval/ranking. The goal is not just to build one agent. The goal is to run multiple agent designs on the same tasks, score them consistently, and inspect the tradeoffs.
+The first domain is recommender systems. The goal is not just to build one agent. The goal is to build and run multiple agent designs on the same tasks, score them consistently, and inspect the tradeoffs.
 
 ## What This Project Does
 
@@ -39,6 +39,15 @@ For each run, the harness stores:
 - retrieved documents
 - agent steps
 - metric scores
+
+The corpus is stored as JSONL, one chunk per line. Each corpus row should include:
+
+- `doc_id`
+- `title`
+- `source`
+- `year`
+- `url`
+- `text`
 
 ## Initial Project Scope
 
