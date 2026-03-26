@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from agentic_bench.agents.base import BaseAgent
+from agentic_bench.evaluator import RuleBasedEvaluator
+from agentic_bench.schemas import AgentSummary, BenchmarkReport, RunRecord, Task
+
+
+class BenchmarkRunner:
+    def __init__(self, agents: list[BaseAgent], tasks: list[Task]) -> None:
+        self.agents = agents
+        self.tasks = tasks
+        self.evaluator = RuleBasedEvaluator()
+
+    def run(self) -> BenchmarkReport:
+        records: list[RunRecord] = []
+
+        for agent in self.agents:
+            for task in self.tasks:
+                result = agent.run(task)
+                evaluation = self.evaluator.evaluate(task, result)
+                records.append(RunRecord(task=task, result=result, evaluation=evaluation))
+
+        summaries: list[AgentSummary] = []
+        for agent in self.agents:
+            agent_records = [record for record in records if record.result.agent_name == agent.name]
+            summaries.append(
+                AgentSummary(
+                    agent_name=agent.name,
+                    average_score=round(
+                        sum(record.evaluation.score for record in agent_records) / len(agent_records), 3
+                    ),
+                    average_steps=round(
+                        sum(len(record.result.steps) for record in agent_records) / len(agent_records), 3
+                    ),
+                    average_citations=round(
+                        sum(len(record.result.citations) for record in agent_records) / len(agent_records), 3
+                    ),
+                )
+            )
+
+        return BenchmarkReport(records=records, summaries=summaries)
