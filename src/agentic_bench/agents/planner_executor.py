@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agentic_bench.agents.base import BaseAgent
+from agentic_bench.llm_utils import build_plan
 from agentic_bench.schemas import AgentResult, Task, TraceStep
 
 
@@ -14,7 +15,9 @@ class PlannerExecutorAgent(BaseAgent):
         docs = []
         seen_doc_ids: set[str] = set()
         for step in plan:
-            step_docs = self.search_tool.search(step, top_k=1)
+            step_docs = self.search_tool.search(step, top_k=5)
+            if not step_docs:
+                continue
             steps.append(
                 TraceStep(
                     kind="execute",
@@ -27,10 +30,23 @@ class PlannerExecutorAgent(BaseAgent):
                     docs.append(doc)
                     seen_doc_ids.add(doc.doc_id)
 
-        answer = " ".join(
-            f"{doc.title} ({doc.source}, {doc.year}): {doc.text}" for doc in docs
+        prompt = build_grounded_qa_prompt(question=task.question, docs=all_docs)
+        response = client.responses.create(model=model, input=prompt)
+        response_text = response.output_text.strip()
+        parsed_response = parse_grounded_qa_response(response_text=response_text, docs=all_docs)
+
+        steps.append(
+            TraceStep(
+                kind="answer",
+                content=parsed_response["answer"],
+                metadata={
+                    "citations": parsed_response["citations"],
+                    "output_contract_ok": parsed_response["output_contract_ok"],
+                    "parse_mode": parsed_response["parse_mode"],
+                    "failure_reason": parsed_response["failure_reason"],
+                },
+            )
         )
-        steps.append(TraceStep(kind="synthesize", content=answer))
 
         return AgentResult(
             agent_name=self.name,
@@ -42,13 +58,4 @@ class PlannerExecutorAgent(BaseAgent):
         )
 
     def _build_plan(self, question: str) -> list[str]:
-        if "cold-start" in question:
-            return [
-                "find one approach for cold-start recommendation",
-                "find a second approach for cold-start recommendation",
-                "find a tradeoff for personalization or coverage",
-            ]
-        return [
-            "find what retrieval does in recommendation pipelines",
-            "find what reranking does in recommendation pipelines",
-        ]
+        return build_plan(question)

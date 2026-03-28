@@ -44,6 +44,28 @@ def extract_first_json_object(response_text: str) -> tuple[dict | None, str]:
     return None, "no_json_found"
 
 
+def extract_first_json_array(response_text: str) -> tuple[list | None, str]:
+    try:
+        parsed = json.loads(response_text)
+    except json.JSONDecodeError:
+        parsed = None
+    else:
+        return (parsed, "full_json") if isinstance(parsed, list) else (None, "non_array_json")
+
+    decoder = json.JSONDecoder()
+    start = response_text.find("[")
+    while start != -1:
+        try:
+            candidate, _ = decoder.raw_decode(response_text[start:])
+        except json.JSONDecodeError:
+            start = response_text.find("[", start + 1)
+            continue
+        if isinstance(candidate, list):
+            return candidate, "embedded_json"
+        start = response_text.find("[", start + 1)
+    return None, "no_json_found"
+
+
 def normalize_answer(answer_value: object, fallback: str) -> tuple[str, bool]:
     if isinstance(answer_value, str):
         answer = answer_value.strip()
@@ -143,3 +165,57 @@ Question:
 References:
 {references}
 """
+
+
+def build_plan_prompt(question: str) -> str:
+    return f"""You are a planning assistant for a retrieval agent.
+Return only valid JSON as an array with at most 4 items.
+Each item must be an object with this exact schema:
+{{
+  "type": "search" | "think",
+  "question": "string"
+}}
+
+Rules:
+- Break the user question into the smallest useful sequence of steps.
+- Keep each "question" concise and actionable.
+- Use "search" for information that should be retrieved externally.
+- Use "think" for synthesis or comparison steps.
+- Do not include any text outside the JSON array.
+
+User question:
+{question}
+"""
+
+
+def build_plan(question: str) -> list[str]:
+    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    response = get_openai_client().responses.create(
+        model=model,
+        input=build_plan_prompt(question),
+    )
+    response_text = response.output_text.strip()
+    parsed, _ = extract_first_json_array(response_text)
+
+    if not isinstance(parsed, list):
+        fallback_question = question.strip()
+        return [fallback_question] if fallback_question else []
+
+    steps: list[str] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        question_value = item.get("question")
+        if not isinstance(question_value, str):
+            continue
+        step = question_value.strip()
+        if step:
+            steps.append(step)
+        if len(steps) == 4:
+            break
+
+    if steps:
+        return steps
+
+    fallback_question = question.strip()
+    return [fallback_question] if fallback_question else []

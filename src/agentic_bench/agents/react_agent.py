@@ -5,16 +5,16 @@ import os
 from agentic_bench.agents.base import BaseAgent
 from agentic_bench.llm_utils import (
     build_grounded_qa_prompt,
+    extract_first_json_object,
     get_openai_client,
-    normalize_questions,
     parse_grounded_qa_response,
 )
-from agentic_bench.schemas import AgentResult, Task, TraceStep
+from agentic_bench.schemas import AgentResult, Document, Task, TraceStep
 
 
 class ReActAgent(BaseAgent):
     name = "react_agent"
-    max_initial_questions = 3
+    max_searches = 3
     search_top_k = 5
 
     def _build_no_references_result(self, task: Task, steps: list[TraceStep]) -> AgentResult:
@@ -34,87 +34,157 @@ class ReActAgent(BaseAgent):
             steps=steps,
         )
 
-    def run(self, task: Task) -> AgentResult:
-        question_plan_prompt = f"""Break the user question into the set of 2-3 sub-questions needed to answer it.
+    def _build_decision_prompt(
+        self,
+        task: Task,
+        docs: list[Document],
+        seen_queries: list[str],
+        searches_used: int,
+    ) -> str:
+        references = "\n\n".join(
+            f"{doc.doc_id} {doc.title} ({doc.source}, {doc.year}): {doc.text}" for doc in docs
+        )
+        seen_queries_text = "\n".join(f"- {query}" for query in seen_queries) or "- none"
+        references_text = references or "No references retrieved yet."
+        return f"""You are deciding the next action for a ReAct-style research agent.
+        Choose exactly one action: "search" or "answer".
+
         Return only valid JSON with this exact schema:
         {{
-        "question": ["string"]
+        "thought": "string",
+        "action": "search" | "answer",
+        "query": "string"
         }}
 
-        Question:
-        {task.question}
-        """
-        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-        question_plan_response = get_openai_client().responses.create(
-            model=model,
-            input=question_plan_prompt,
-        )
-        question_plan_text = question_plan_response.output_text.strip()
-        question_plan_json, question_plan_parse_mode = extract_first_json_object(question_plan_text)
-        questions = normalize_questions(
-            question_plan_json.get("question") if question_plan_json else None,
-            task.question,
-        )[: self.max_initial_questions]
-        steps: list[TraceStep] = [
-            TraceStep(
-                kind="thought",
-                content="Plan a small set of search queries from the user question.",
-                metadata={
-                    "planning_prompt": question_plan_prompt,
-                    "questions": questions,
-                    "parse_mode": question_plan_parse_mode,
-                },
-            ),
-        ]
-
-        initial_docs = []
-        for question in questions:
-            question_docs = self.search_tool.search(question, top_k=self.search_top_k)
-            initial_docs.extend(question_docs)
-            steps.append(
-                TraceStep(
-                    kind="retrieve",
-                    content=question,
-                    metadata={"doc_ids": [doc.doc_id for doc in question_docs]},
-                )
-            )
-        initial_docs = list({doc.doc_id: doc for doc in initial_docs}.values())
-        initial_references = "\n\n".join(
-            f"{doc.doc_id} {doc.title} ({doc.source}, {doc.year}): {doc.text}" for doc in initial_docs
-        )
-        follow_up_prompt = f"""Suggest one concise follow-up search question that could help answer the user's question better.
-        Return only the follow-up question as plain text.
+        Rules:
+        - If the current evidence is not enough to answer well, choose "search".
+        - If there is enough evidence, choose "answer".
+        - If you choose "search", provide one concise search query in "query".
+        - If you choose "answer", set "query" to an empty string.
+        - Avoid repeating previous queries.
 
         User question:
         {task.question}
 
-        Retrieved references:
-        {initial_references}
-        """
-        follow_up_response = get_openai_client().responses.create(
-            model=model,
-            input=follow_up_prompt,
-        )
-        follow_up = follow_up_response.output_text.strip() or task.question
-        steps.append(
-            TraceStep(
-                kind="thought",
-                content="Use the first-pass evidence to choose one follow-up search.",
-                metadata={"follow_up_prompt": follow_up_prompt, "follow_up_query": follow_up},
-            )
-        )
-        extra_docs = self.search_tool.search(follow_up, top_k=self.search_top_k)
-        steps.append(
-            TraceStep(kind="retrieve", content=follow_up, metadata={"doc_ids": [doc.doc_id for doc in extra_docs]})
-        )
+        Searches used:
+        {searches_used} of {self.max_searches}
 
-        all_docs = list({doc.doc_id: doc for doc in (initial_docs + extra_docs)}.values())
+        Previous queries:
+        {seen_queries_text}
+
+        Retrieved references:
+        {references_text}
+        """
+
+    def _normalize_decision(self, response_text: str, docs: list[Document]) -> tuple[str, str, str, str]:
+        parsed, parse_mode = extract_first_json_object(response_text)
+        if not isinstance(parsed, dict):
+            if docs:
+                return "answer", "", "Defaulting to answer because the decision output was not valid JSON.", parse_mode
+            return "search", "", "Defaulting to search because no references have been retrieved yet.", parse_mode
+
+        thought_value = parsed.get("thought", "")
+        thought = thought_value.strip() if isinstance(thought_value, str) else str(thought_value).strip()
+
+        action_value = parsed.get("action", "")
+        action = action_value.strip().lower() if isinstance(action_value, str) else ""
+        if action not in {"search", "answer"}:
+            action = "answer" if docs else "search"
+
+        query_value = parsed.get("query", "")
+        query = query_value.strip() if isinstance(query_value, str) else ""
+
+        if not thought:
+            thought = "Choose the next action based on the retrieved evidence."
+        return action, query, thought, parse_mode
+
+    def run(self, task: Task) -> AgentResult:
+        client = get_openai_client()
+        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+
+        steps: list[TraceStep] = []
+        all_docs: list[Document] = []
+        seen_doc_ids: set[str] = set()
+        seen_queries: list[str] = []
+
+        for search_idx in range(self.max_searches):
+            decision_prompt = self._build_decision_prompt(
+                task=task,
+                docs=all_docs,
+                seen_queries=seen_queries,
+                searches_used=search_idx,
+            )
+            decision_response = client.responses.create(model=model, input=decision_prompt)
+            decision_text = decision_response.output_text.strip()
+            action, query, thought, parse_mode = self._normalize_decision(decision_text, all_docs)
+
+            steps.append(
+                TraceStep(
+                    kind="thought",
+                    content=thought,
+                    metadata={
+                        "action": action,
+                        "query": query,
+                        "parse_mode": parse_mode,
+                        "search_index": search_idx + 1,
+                    },
+                )
+            )
+
+            if action == "answer":
+                break
+
+            if not query:
+                steps.append(
+                    TraceStep(
+                        kind="thought",
+                        content="Stopping because the next search query was empty.",
+                        metadata={"stop_reason": "empty_query"},
+                    )
+                )
+                break
+
+            if query in seen_queries:
+                steps.append(
+                    TraceStep(
+                        kind="thought",
+                        content="Stopping because the next search query duplicated a previous query.",
+                        metadata={"stop_reason": "duplicate_query", "query": query},
+                    )
+                )
+                break
+
+            seen_queries.append(query)
+            retrieved_docs = self.search_tool.search(query, top_k=self.search_top_k)
+            retrieved_doc_ids = [doc.doc_id for doc in retrieved_docs]
+            steps.append(
+                TraceStep(
+                    kind="retrieve",
+                    content=query,
+                    metadata={"doc_ids": retrieved_doc_ids},
+                )
+            )
+
+            new_docs = [doc for doc in retrieved_docs if doc.doc_id not in seen_doc_ids]
+            if not new_docs:
+                steps.append(
+                    TraceStep(
+                        kind="thought",
+                        content="Stopping because retrieval produced no new evidence.",
+                        metadata={"stop_reason": "no_new_evidence", "query": query},
+                    )
+                )
+                break
+
+            for doc in new_docs:
+                seen_doc_ids.add(doc.doc_id)
+                all_docs.append(doc)
+
         if not all_docs:
             return self._build_no_references_result(task, steps)
 
         prompt = build_grounded_qa_prompt(question=task.question, docs=all_docs)
-        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-        response = get_openai_client().responses.create(model=model, input=prompt)
+        response = client.responses.create(model=model, input=prompt)
         response_text = response.output_text.strip()
         parsed_response = parse_grounded_qa_response(response_text=response_text, docs=all_docs)
 
