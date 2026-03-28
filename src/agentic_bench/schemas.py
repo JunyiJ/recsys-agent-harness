@@ -31,6 +31,12 @@ class TraceStep:
 
 
 @dataclass(slots=True)
+class PlanStep:
+    type: str
+    question: str
+
+
+@dataclass(slots=True)
 class AgentResult:
     agent_name: str
     task_id: str

@@ -5,7 +5,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from agentic_bench.schemas import Document
+from agentic_bench.schemas import Document, PlanStep
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -188,7 +188,7 @@ User question:
 """
 
 
-def build_plan(question: str) -> list[str]:
+def build_plan(question: str) -> list[PlanStep]:
     model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
     response = get_openai_client().responses.create(
         model=model,
@@ -199,18 +199,24 @@ def build_plan(question: str) -> list[str]:
 
     if not isinstance(parsed, list):
         fallback_question = question.strip()
-        return [fallback_question] if fallback_question else []
+        return [PlanStep(type="search", question=fallback_question)] if fallback_question else []
 
-    steps: list[str] = []
+    steps: list[PlanStep] = []
     for item in parsed:
         if not isinstance(item, dict):
             continue
+        step_type_value = item.get("type")
         question_value = item.get("question")
+        if not isinstance(step_type_value, str):
+            continue
         if not isinstance(question_value, str):
             continue
-        step = question_value.strip()
-        if step:
-            steps.append(step)
+        step_type = step_type_value.strip().lower()
+        step_question = question_value.strip()
+        if step_type not in {"search", "think"}:
+            continue
+        if step_question:
+            steps.append(PlanStep(type=step_type, question=step_question))
         if len(steps) == 4:
             break
 
@@ -218,4 +224,4 @@ def build_plan(question: str) -> list[str]:
         return steps
 
     fallback_question = question.strip()
-    return [fallback_question] if fallback_question else []
+    return [PlanStep(type="search", question=fallback_question)] if fallback_question else []
