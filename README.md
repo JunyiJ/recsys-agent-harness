@@ -6,7 +6,7 @@ The first domain is recommender systems. The goal is not just to build one agent
 
 ## What This Project Does
 
-You define:
+Define:
 
 - a task set
 - a document corpus or tools the agents can use
@@ -57,38 +57,51 @@ python scripts/build_recent_recsys_corpus.py
 
 This writes `data/corpus/recsys_recent_2024_2025_300.jsonl` using DBLP table-of-contents records for RecSys, KDD, and WWW (2024-2025), plus OpenAlex abstracts for the `text` field.
 
-## Initial Project Scope
-
-This scaffold is intentionally small:
-
-- 2 sample tasks
-- a tiny local corpus
-- 3 deterministic example agents
-- a simple rule-based evaluator
-
-It is enough to make the architecture concrete. Later you can replace the placeholder agent logic with real LLM calls, web search, reranking, and richer evals.
-
 ## Project Layout
 
 ```text
 .
+├── configs
+│   ├── default.yaml
+│   ├── default_llm.yaml
+│   └── large_llm.yaml
 ├── data
 │   ├── corpus
-│   │   └── recsys_docs.jsonl
+│   │   ├── recsys_docs.jsonl
+│   │   └── recsys_recent_2024_2025_300.jsonl
 │   └── tasks
+│       ├── recsys_recent_2024_2025_tasks.jsonl
 │       └── sample_tasks.jsonl
+├── notebooks
+│   ├── analyze_benchmark_report.ipynb
+│   └── plot_results
+│       ├── snapshot_1_summary_table.png
+│       ├── snapshot_1_aggregate_agent_performance.png
+│       ├── per_task_score_by_agent_heatmap.png
+│       └── bottleneck_distribution_by_agent_pct.png
 ├── pyproject.toml
 ├── README.md
+├── results
+│   ├── benchmark_report.json
+│   ├── benchmark_report_llm.json
+│   ├── benchmark_report_large_llm.json
+│   ├── run_manifest.json
+│   ├── run_manifest_llm.json
+│   └── run_manifest_large_llm.json
 ├── scripts
+│   ├── build_recent_recsys_corpus.py
 │   └── run_benchmark.py
 └── src
     └── agentic_bench
         ├── agents
+        │   ├── __init__.py
         │   ├── base.py
         │   ├── baseline.py
         │   ├── planner_executor.py
         │   └── react_agent.py
+        ├── config.py
         ├── evaluator.py
+        ├── llm_utils.py
         ├── runner.py
         ├── schemas.py
         ├── tasks.py
@@ -136,7 +149,6 @@ This corresponds to the run manifest in `results/run_manifest_large_llm.json` an
 | `react_agent` | 0.732 | 0.611 | 0.889 | 0.856 | 0.850 | 6.4 |
 | `baseline_rag` | 0.632 | 0.578 | 0.756 | 0.739 | 0.650 | 2.0 |
 
-![Summary Table](notebooks/plot_results/snapshot_1_summary_table.png)
 
 ![Aggregate Agent Performance](notebooks/plot_results/snapshot_1_aggregate_agent_performance.png)
 
@@ -183,21 +195,3 @@ The notebook at `notebooks/analyze_benchmark_report.ipynb`:
 - generates an automatic narrative summary
 
 It also exports report-ready artifacts to `notebooks/plot_results/` when run.
-
-## What To Replace Next
-
-The next upgrades should be:
-
-1. swap deterministic agent logic for real LLM-backed agents
-2. expand the task set to 25 to 50 tasks
-3. add retrieval and reranking ablations
-4. add richer evaluation and analysis notebooks
-
-## What "Good" Looks Like
-
-A strong finished version of this project should answer:
-
-- which agent architecture is more accurate on your task family
-- whether better retrieval matters more than more complex agent planning
-- what the cost and latency tradeoffs look like
-- what failure modes appear in traces
