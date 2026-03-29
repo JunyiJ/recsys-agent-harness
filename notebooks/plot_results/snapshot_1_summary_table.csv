@@ -1,0 +1,4 @@
+agent_name,average_score,average_fact_coverage,average_retrieved_doc_hit_rate,average_citation_coverage,average_support_quality,average_steps,average_citations
+planner_executor,0.753,0.667,0.872,0.872,0.817,8.6,2.033
+react_agent,0.732,0.611,0.889,0.856,0.85,6.4,2.033
+baseline_rag,0.632,0.578,0.756,0.739,0.65,2.0,1.867

@@ -41,7 +41,7 @@ def _build_agents(
         },
         "react_agent": {
             "cls": ReActAgent,
-            "allowed_settings": {"top_k"},
+            "allowed_settings": {"top_k", "max_searches"},
         },
         "planner_executor": {
             "cls": PlannerExecutorAgent,
@@ -72,6 +72,13 @@ def _build_agents(
             if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k <= 0:
                 raise ValueError(
                     f"Invalid top_k for agent '{agent_name}': {top_k!r}. "
+                    "Expected a positive integer."
+                )
+        if "max_searches" in settings:
+            max_searches = settings["max_searches"]
+            if isinstance(max_searches, bool) or not isinstance(max_searches, int) or max_searches <= 0:
+                raise ValueError(
+                    f"Invalid max_searches for agent '{agent_name}': {max_searches!r}. "
                     "Expected a positive integer."
                 )
 

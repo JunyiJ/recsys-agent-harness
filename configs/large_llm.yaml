@@ -1,8 +1,8 @@
-run_name: default_llm
+run_name: large_llm
 
 data:
   corpus_path: data/corpus/recsys_recent_2024_2025_300.jsonl
-  tasks_path: data/tasks/sample_tasks.jsonl
+  tasks_path: data/tasks/recsys_recent_2024_2025_tasks.jsonl
 
 agents:
   - baseline_rag
@@ -27,5 +27,5 @@ evaluator:
 
 output:
   output_dir: results
-  report_filename: benchmark_report_llm.json
-  manifest_filename: run_manifest_llm.json
+  report_filename: benchmark_report_large_llm.json
+  manifest_filename: run_manifest_large_llm.json
