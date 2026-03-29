@@ -6,6 +6,7 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: openai<2.0.0,>=1.0.0
 Requires-Dist: python-dotenv<2.0.0,>=1.0.1
+Requires-Dist: PyYAML<7.0.0,>=6.0.2
 
 # Agentic Benchmark Harness
 

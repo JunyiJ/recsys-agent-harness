@@ -15,7 +15,10 @@ from agentic_bench.schemas import AgentResult, Document, Task, TraceStep
 class ReActAgent(BaseAgent):
     name = "react_agent"
     max_searches = 3
-    search_top_k = 5
+
+    def __init__(self, search_tool, top_k: int = 5) -> None:
+        super().__init__(search_tool=search_tool)
+        self.search_top_k = top_k
 
     def _build_no_references_result(self, task: Task, steps: list[TraceStep]) -> AgentResult:
         steps.append(

@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-import os
-
 from agentic_bench.agents.base import BaseAgent
 from agentic_bench.evaluator import LLMBasedEvaluator, RuleBasedEvaluator
 from agentic_bench.schemas import AgentSummary, BenchmarkReport, Document, RunRecord, Task
 
 
 class BenchmarkRunner:
-    def __init__(self, agents: list[BaseAgent], tasks: list[Task], corpus: list[Document] | None = None) -> None:
+    def __init__(
+        self,
+        agents: list[BaseAgent],
+        tasks: list[Task],
+        *,
+        evaluator_type: str = "rule",
+        corpus: list[Document] | None = None,
+    ) -> None:
         self.agents = agents
         self.tasks = tasks
-        evaluator_type = os.getenv("AGENTIC_BENCH_EVALUATOR", "rule").strip().lower()
+        evaluator_type = evaluator_type.strip().lower()
         if evaluator_type == "llm":
             if corpus is None:
                 raise ValueError("LLM-based evaluation requires the corpus to look up cited document text.")

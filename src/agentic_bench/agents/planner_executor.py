@@ -14,7 +14,10 @@ from agentic_bench.schemas import AgentResult, PlanStep, Task, TraceStep
 
 class PlannerExecutorAgent(BaseAgent):
     name = "planner_executor"
-    search_top_k = 5
+
+    def __init__(self, search_tool, top_k: int = 5) -> None:
+        super().__init__(search_tool=search_tool)
+        self.search_top_k = top_k
 
     def _build_no_references_result(self, task: Task, steps: list[TraceStep]) -> AgentResult:
         steps.append(

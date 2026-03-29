@@ -1,7 +1,9 @@
 README.md
 pyproject.toml
 src/agentic_bench/__init__.py
+src/agentic_bench/config.py
 src/agentic_bench/evaluator.py
+src/agentic_bench/llm_utils.py
 src/agentic_bench/runner.py
 src/agentic_bench/schemas.py
 src/agentic_bench/tasks.py

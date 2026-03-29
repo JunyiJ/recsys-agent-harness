@@ -22,8 +22,12 @@ class BaselineRAGAgent(BaseAgent):
     """
     name = "baseline_rag"
 
+    def __init__(self, search_tool, top_k: int = 8) -> None:
+        super().__init__(search_tool=search_tool)
+        self.top_k = top_k
+
     def run(self, task: Task) -> AgentResult:
-        docs = self.search_tool.search(task.question, top_k=8)
+        docs = self.search_tool.search(task.question, top_k=self.top_k)
         ref_ids = [doc.doc_id for doc in docs]
         if not docs:
             return AgentResult(

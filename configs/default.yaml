@@ -1,0 +1,30 @@
+run_name: default
+
+data:
+  corpus_path: data/corpus/recsys_recent_2024_2025_300.jsonl
+  tasks_path: data/tasks/sample_tasks.jsonl
+
+agents:
+  - baseline_rag
+  - react_agent
+  - planner_executor
+
+agent_settings:
+  baseline_rag:
+    top_k: 8
+  react_agent:
+    top_k: 5
+  planner_executor:
+    top_k: 5
+
+models:
+  actor: gpt-4.1-mini
+  judge: gpt-5
+
+evaluator:
+  type: rule
+
+output:
+  output_dir: results
+  report_filename: benchmark_report.json
+  manifest_filename: run_manifest.json
