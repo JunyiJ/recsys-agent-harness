@@ -10,7 +10,7 @@ from agentic_bench.tools import LocalKeywordSearchTool
 
 def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
-    corpus = load_corpus(project_root / "data" / "corpus" / "recsys_docs.jsonl")
+    corpus = load_corpus(project_root / "data" / "corpus" / "recsys_recent_2024_2025_300.jsonl")
     tasks = load_tasks(project_root / "data" / "tasks" / "sample_tasks.jsonl")
 
     search_tool = LocalKeywordSearchTool(corpus=corpus)
@@ -20,7 +20,7 @@ def main() -> None:
         PlannerExecutorAgent(search_tool=search_tool),
     ]
 
-    runner = BenchmarkRunner(agents=agents, tasks=tasks)
+    runner = BenchmarkRunner(agents=agents, tasks=tasks, corpus=corpus)
     report = runner.run()
 
     output_dir = project_root / "results"

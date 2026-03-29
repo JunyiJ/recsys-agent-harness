@@ -52,7 +52,9 @@ class EvaluationResult:
     agent_name: str
     score: float
     fact_coverage: float
+    retrieved_doc_hit_rate: float
     citation_coverage: float
+    support_quality: float
     notes: list[str]
 
 
@@ -67,6 +69,10 @@ class RunRecord:
 class AgentSummary:
     agent_name: str
     average_score: float
+    average_fact_coverage: float
+    average_retrieved_doc_hit_rate: float
+    average_citation_coverage: float
+    average_support_quality: float
     average_steps: float
     average_citations: float
 
