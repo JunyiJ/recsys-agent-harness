@@ -75,10 +75,12 @@ This writes `data/corpus/recsys_recent_2024_2025_300.jsonl` using DBLP table-of-
 ├── notebooks
 │   ├── analyze_benchmark_report.ipynb
 │   └── plot_results
-│       ├── snapshot_1_summary_table.png
-│       ├── snapshot_1_aggregate_agent_performance.png
-│       ├── per_task_score_by_agent_heatmap.png
-│       └── bottleneck_distribution_by_agent_pct.png
+│       ├── large_llm_run0
+│       │   ├── snapshot_1_summary_table.png
+│       │   ├── snapshot_1_aggregate_agent_performance.png
+│       │   ├── per_task_score_by_agent_heatmap.png
+│       │   └── bottleneck_distribution_by_agent_pct.png
+│       └── large_llm_run1
 ├── pyproject.toml
 ├── README.md
 ├── results
@@ -150,7 +152,7 @@ This corresponds to the run manifest in `results/run_manifest_large_llm.json` an
 | `baseline_rag` | 0.632 | 0.578 | 0.756 | 0.739 | 0.650 | 2.0 |
 
 
-![Aggregate Agent Performance](notebooks/plot_results/snapshot_1_aggregate_agent_performance.png)
+![Aggregate Agent Performance](notebooks/plot_results/large_llm_run0/snapshot_1_aggregate_agent_performance.png)
 
 ### Main Takeaways
 
@@ -166,7 +168,7 @@ The hardest task in this run was `cold_start_multimodal_vs_social_ripple`:
 
 Its mean score across agents was only `0.139`, which suggests that tasks requiring fine-grained cross-paper comparison remain difficult even with a curated local corpus.
 
-![Per-Task Score by Agent](notebooks/plot_results/per_task_score_by_agent_heatmap.png)
+![Per-Task Score by Agent](notebooks/plot_results/large_llm_run0/per_task_score_by_agent_heatmap.png)
 
 ### Discussion
 
@@ -183,7 +185,7 @@ So the practical interpretation is not simply "planner is better." A more accura
 
 That interpretation matches the task family here. Many of the benchmark questions ask the agent to compare multiple methods, extract contrasts, and synthesize tradeoffs. Those are naturally compatible with planner-executor because the decomposition is often knowable upfront. In this setting, dynamic retrieval decisions from ReAct are still useful, but they are not always the deciding factor.
 
-![Bottleneck Distribution by Agent](notebooks/plot_results/bottleneck_distribution_by_agent_pct.png)
+![Bottleneck Distribution by Agent](notebooks/plot_results/large_llm_run0/bottleneck_distribution_by_agent_pct.png)
 
 ## Analysis Notebook
 
