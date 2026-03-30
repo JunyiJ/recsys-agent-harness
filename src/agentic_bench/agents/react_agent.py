@@ -61,7 +61,7 @@ class ReActAgent(BaseAgent):
 
         Rules:
         - If the current evidence is not enough to answer well, choose "search".
-        - If there is enough evidence, choose "answer".
+        - If there is enough evidence, choose "answer". Only choose "answer" if you have high confidence.
         - If you choose "search", provide one concise search query in "query".
         - If you choose "answer", set "query" to an empty string.
         - Avoid repeating previous queries.

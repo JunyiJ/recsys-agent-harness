@@ -141,9 +141,14 @@ Main benchmark setup:
 - judge model: `gpt-5`
 - evaluator: LLM-based
 
-This corresponds to the run manifest in `results/run_manifest_large_llm.json` and the report in `results/benchmark_report_large_llm.json`.
+Two large LLM-judged runs are summarized below:
 
-### Aggregate Results
+- `run0`: `results/run_manifest_large_llm.json` and `results/benchmark_report_large_llm.json`
+- `run1`: `results/run_manifest_large_llm_1.json` and `results/benchmark_report_large_llm_1.json`
+
+`run1` uses the same benchmark setup, but with improved answer-generation prompts for all agents and a tighter `ReAct` decision policy for when to stop searching and answer.
+
+### Run 0
 
 | Agent | Avg Score | Fact Coverage | Retrieved Gold Doc Hit Rate | Citation Coverage | Support Quality | Avg Steps |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -151,41 +156,59 @@ This corresponds to the run manifest in `results/run_manifest_large_llm.json` an
 | `react_agent` | 0.732 | 0.611 | 0.889 | 0.856 | 0.850 | 6.4 |
 | `baseline_rag` | 0.632 | 0.578 | 0.756 | 0.739 | 0.650 | 2.0 |
 
+![Run 0 Aggregate Agent Performance](notebooks/plot_results/large_llm_run0/snapshot_1_aggregate_agent_performance.png)
 
-![Aggregate Agent Performance](notebooks/plot_results/large_llm_run0/snapshot_1_aggregate_agent_performance.png)
-
-### Main Takeaways
-
-- `planner_executor` is the strongest overall agent in this benchmark. It leads on average score, fact coverage, and citation coverage.
-- `react_agent` is the strongest retrieval-grounding compromise. It has the best retrieved gold doc hit rate and the best support quality while using fewer steps than `planner_executor`.
-- `baseline_rag` is meaningfully weaker than both multi-step agents, which suggests that for these research QA tasks, a single retrieval pass is often not enough.
-
-### Hardest Task
-
-The hardest task in this run was `cold_start_multimodal_vs_social_ripple`:
+The hardest task in `run0` was `cold_start_multimodal_vs_social_ripple`:
 
 > Compare SiBraR and SocRipple as solutions for new-item recommendation. What signal does each rely on first, and in what product setting would each be most natural?
 
-Its mean score across agents was only `0.139`, which suggests that tasks requiring fine-grained cross-paper comparison remain difficult even with a curated local corpus.
+Its mean score across agents was only `0.139`, which suggests that fine-grained cross-paper comparison remained difficult even with a curated local corpus.
 
-![Per-Task Score by Agent](notebooks/plot_results/large_llm_run0/per_task_score_by_agent_heatmap.png)
+![Run 0 Per-Task Score by Agent](notebooks/plot_results/large_llm_run0/per_task_score_by_agent_heatmap.png)
 
-### Discussion
+### Run 1
 
-The high-level pattern is:
+| Agent | Avg Score | Fact Coverage | Retrieved Gold Doc Hit Rate | Citation Coverage | Support Quality | Avg Steps |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `planner_executor` | 0.804 | 0.756 | 0.856 | 0.856 | 0.850 | 8.6 |
+| `react_agent` | 0.791 | 0.733 | 0.906 | 0.872 | 0.833 | 5.933 |
+| `baseline_rag` | 0.707 | 0.678 | 0.756 | 0.739 | 0.733 | 2.0 |
 
-- `planner_executor` performs best overall because these questions often decompose naturally into subproblems such as identifying methods, comparing mechanisms, and extracting tradeoffs.
-- `react_agent` appears more stable across tasks. In this run, its score variance is lower than `planner_executor` (`0.193` vs `0.238` population standard deviation over task scores), and it avoids some of the catastrophic failures where the planner commits to a poor decomposition and ends up with a very low score.
-- `react_agent` is also likely cheaper in practice than `planner_executor`, at least by execution depth: it uses `6.4` steps on average versus `8.6` for the planner. This is only a proxy for cost, not a direct token measurement, but it still matters operationally.
+![Run 1 Aggregate Agent Performance](notebooks/plot_results/large_llm_run1/snapshot_1_aggregate_agent_performance.png)
 
-So the practical interpretation is not simply "planner is better." A more accurate reading is:
+![Run 1 Per-Task Score by Agent](notebooks/plot_results/large_llm_run1/per_task_score_by_agent_heatmap.png)
 
-- if the workload is dominated by structured comparison questions over a reasonably complete corpus, `planner_executor` is a strong choice
-- if you want a more robust and cheaper default, `react_agent` is also a very reasonable solution
+### Run 0 vs Run 1
 
-That interpretation matches the task family here. Many of the benchmark questions ask the agent to compare multiple methods, extract contrasts, and synthesize tradeoffs. Those are naturally compatible with planner-executor because the decomposition is often knowable upfront. In this setting, dynamic retrieval decisions from ReAct are still useful, but they are not always the deciding factor.
+The changes in `run1` improved all three agents:
 
-![Bottleneck Distribution by Agent](notebooks/plot_results/large_llm_run0/bottleneck_distribution_by_agent_pct.png)
+| Agent | Avg Score Run 0 | Avg Score Run 1 | Delta | Avg Steps Run 0 | Avg Steps Run 1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `baseline_rag` | 0.632 | 0.707 | +0.075 | 2.0 | 2.0 |
+| `react_agent` | 0.732 | 0.791 | +0.059 | 6.4 | 5.933 |
+| `planner_executor` | 0.753 | 0.804 | +0.051 | 8.6 | 8.6 |
+
+The main pattern changed in an important way:
+
+- `planner_executor` still has the best overall score, but only by a small margin.
+- `react_agent` is now nearly tied on quality while using materially fewer steps than `planner_executor`.
+- `baseline_rag` improved substantially, which suggests that the final answer prompt had been a real bottleneck even for the simple retrieve-once agent.
+
+This makes the new practical conclusion stronger than in `run0`. The question is no longer simply which agent gets the top score. It is which agent gives the best quality-efficiency tradeoff.
+
+On that front, `react_agent` now looks especially strong:
+
+- it reaches `0.791` average score versus `0.804` for `planner_executor`
+- it uses `5.933` steps on average versus `8.6` for `planner_executor`
+- it still leads on retrieved gold document hit rate at `0.906`
+
+That makes `react_agent` a very plausible default for a production-style system, even though `planner_executor` remains the top scorer.
+
+The task family still helps explain why the planner remains competitive. Many benchmark questions ask the agent to compare multiple methods, extract contrasts, and synthesize tradeoffs. Those are naturally compatible with planner-executor because the decomposition is often knowable upfront. But `run1` shows that once answer synthesis and stopping rules are improved, the extra planning structure buys much less than it did in `run0`.
+
+![Run 0 Bottleneck Distribution by Agent](notebooks/plot_results/large_llm_run0/bottleneck_distribution_by_agent_pct.png)
+
+![Run 1 Bottleneck Distribution by Agent](notebooks/plot_results/large_llm_run1/bottleneck_distribution_by_agent_pct.png)
 
 ## Analysis Notebook
 

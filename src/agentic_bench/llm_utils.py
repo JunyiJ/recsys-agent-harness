@@ -155,6 +155,7 @@ Return only valid JSON with this exact schema:
 
 Requirements:
 - "answer" must be concise and grounded in the references.
+- "answer" should be thorough and well backed by the references to cover all key points.
 - "citations" must include only references used in the answer.
 - If the references are insufficient, say so in "answer" and return only the citations you actually used.
 - Do not include markdown, commentary, or any text outside the JSON object.
